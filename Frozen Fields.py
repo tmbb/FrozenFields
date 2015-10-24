@@ -1,3 +1,11 @@
+# Frozen Fields add-on for Anki
+# 
+# Original author: tmbb (https://github.com/tmbb)
+# This version by: Glutanimate (https://github.com/Glutanimate)
+#
+# Modifications:
+#  - added hotkeys for various actions
+
 # Snowflake Icon
 icon_name = "flake"
 min_width = "28"
@@ -6,12 +14,10 @@ min_width = "28"
 #icon_name = "frozen_26x28"
 #min_width = "28"
 
-from aqt import mw
-from aqt import editor
-from anki.hooks import wrap
-
+from aqt import mw, editor
+from aqt.qt import *
+from anki.hooks import wrap, addHook
 from anki.utils import json
-
 import os
 
 def addons_folder(): return mw.pm.addonFolder()
@@ -68,7 +74,6 @@ function setFrozenFields(fields, frozen, focusTo) {
 };
 """
 
-
 def myLoadNote(self):
     self.web.eval(js_code)
     if self.stealFocus:
@@ -105,5 +110,37 @@ def myBridge(self, str):
         model['flds'][field_nr]['sticky'] = not is_sticky
         self.loadNote()
 
+def resetFrozen(editor):
+    myField = editor.currentField
+    flds = editor.note.model()['flds']
+    for n in range(len(editor.note.fields)):
+        try:
+            if  flds[n]['sticky']:
+                flds[n]['sticky'] = not flds[n]['sticky']
+        except IndexError:
+            break
+    editor.loadNote()
+    editor.web.eval("focusField(%d);" % myField)
+
+def toggleFrozen(editor):
+    # myField = editor.currentField
+    # flds = editor.note.model()['flds']
+    # flds[myField]['sticky'] = not flds[myField]['sticky']
+    myField = editor.currentField
+    editor.web.eval("""py.run("frozen:%d");""" % myField)
+    editor.loadNote()
+    editor.web.eval("focusField(%d);" % myField)
+
+def onSetupButtons(editor):
+    # insert custom key sequences here:
+    # e.g. QKeySequence(Qt.ALT + Qt.SHIFT + Qt.Key_F) for Alt+Shift+F
+    s = QShortcut(QKeySequence(Qt.Key_F9), editor.parentWindow)
+    s.connect(s, SIGNAL("activated()"),
+              lambda : toggleFrozen(editor))
+    t = QShortcut(QKeySequence(Qt.SHIFT + Qt.Key_F9), editor.parentWindow)
+    t.connect(t, SIGNAL("activated()"),
+              lambda : resetFrozen(editor))
+
+addHook("setupEditorButtons", onSetupButtons)
 editor.Editor.loadNote = myLoadNote
 editor.Editor.bridge = wrap(editor.Editor.bridge, myBridge, 'before')
